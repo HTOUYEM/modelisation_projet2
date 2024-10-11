@@ -359,3 +359,93 @@ plot2 <- ggplot(week_days, aes(x = dur, fill = mem)) +
 grid.arrange(plot1, plot2, ncol = 1)
 
 ```
+# **Question 3: Les durées de trajets sont-elles différentes selon que l’on se trouve aux heures de pointe ou non en semaine? Existe-t-il des différences entre l’utilisation pour les heures de pointes en semaine le matin ou le soir?**
+
+## **Création des groupes à partir de pointe et mem**
+```{r}
+# Création de la variable 'groupe'
+head(data_semaine)
+data_semaine$groupe <- with(data_semaine, ifelse(mem == 'Membre' & pointe == 'Matin', "11",  # Matin, membre
+                                 ifelse(mem == 'Membre' & pointe == 'Soir', "21",  # Soir, membre
+                                 ifelse(mem == 'Membre' & pointe == 'Autre', "31",  # Autre, membre
+                                 ifelse(mem == 'Non-Membre' & pointe == 'Matin', "10",  # Matin, non-membre
+                                 ifelse(mem == 'Non-Membre' & pointe == 'Soir', "20",  # Soir, non-membre
+                                 "30"  # Autre, non-membre
+                                 ))))))
+
+# Convertir 'groupe' en facteur avec l'ordre souhaité
+data_semaine$groupe <- factor(data_semaine$groupe, levels = c("11", "21", "31", "10", "20", "30"))
+
+# Vérifiez les groupes créés
+table(data_semaine$groupe)
+```
+
+
+## **Question 3a: Les durées de trajets sont-elles différentes selon que l’on se trouve aux heures de pointe ou non en semaine?**
+
+```{r}
+# Ajustez le modèle
+mod <- lm(log(dur) ~ pointe * mem, data = data_semaine)
+
+summary(mod)  # Résumé du modèle
+# Créez des moyennes marginales pour les facteurs 'pointe' et 'membre'
+em_3 <- emmeans( mod, ~ pointe*mem)
+
+print(em_3)
+# Définir et tester les contrastes pour la question 3a
+contrast_results_3a <- contrast(em_3, list(
+  "C1: Pointe vs hors pointe pour mem" = c(1, 1, -2, 0, 0, 0),
+  "C2: Pointe vs hors pointe pour non-mem" = c(0, 0, 0, 1, 1, -2),
+  "C3: Mem vs non-mem aux heures de pointe" = c(1, 1, 0, 0, -1, -1),
+  "C4: Mem vs non-mem hors pointe" = c(0, 0, 1, 0, 0, -1),
+  "C5: Pointe vs hors pointe" = c(1, 1, -2, 1, 1, -2)
+))
+
+# Résumé des résultats des contrastes de la question 3a
+summary(contrast_results_3a)
+```
+
+
+L'analyse des différentes contrastes (C1, C2, C4, C5) suggèrent que les durées de trajets aux heures de pointe ne diffèrent pas significativement des heures hors pointe, tant pour les membres que pour les non-membres. Cependant, il existe une différence significative entre les membres et les non-membres pendant les heures de pointe, indiquant que les membres bénéficient d'une expérience de trajet plus rapide.
+
+## **Question 3b: Existe-t-il des différences entre l’utilisation pour les heures de pointes en semaine le matin ou le soir?**
+```{r}
+# Définir et tester les contrastes pour la question 3b
+
+contrast_results_3b <- contrast(em_3, list(
+  "C6: Matin vs soir pour membres" = c(1, -1, 0, 0, 0, 0),  
+  "C7: Matin vs soir pour non-membres" = c(0, 0, 0, 0, -1, 1),
+  "C8: Trajets matin vs soir" = c(1, 0, 0, -1, 0, 0)   
+))
+
+# Résumé des résultats des contrastes de la question 3b
+summary(contrast_results_3b)
+
+```
+
+Dans l'ensemble, les résultats des contrastes montrent qu'il n'y a pas de différences significatives dans les durées de trajet entre le matin et le soir pour les membres et les non-membres pendant les heures de pointe en semaine. Bien que les estimations suggèrent une tendance vers des trajets plus courts le matin, ces différences ne sont pas suffisamment probantes sur le plan statistique pour justifier des conclusions claires.
+
+## Essai avec la variable groupe
+
+```{r}
+# Ajustez le modèle
+mod_groupe <- lm(log(dur) ~ groupe, data = data_semaine)
+
+summary(mod_groupe)  # Résumé du modèle
+# Créez des moyennes marginales pour les facteurs 'pointe' et 'membre'
+em_groupe <- emmeans( object = mod_groupe, specs = 'groupe')
+
+print(em_groupe)
+# Définir et tester les contrastes pour la question 3a
+contrast_results_3a <- contrast(em_groupe, list(
+  "C1: Pointe vs hors pointe pour mem" = c(1, 1, -2, 0, 0, 0),
+  "C2: Pointe vs hors pointe pour non-mem" = c(0, 0, 0, 1, 1, -2),
+  "C3: Mem vs non-mem aux heures de pointe" = c(1, 1, 0, 0, -1, -1),
+  "C4: Mem vs non-mem hors pointe" = c(0, 0, 1, 0, 0, -1),
+  "C5: Pointe vs hors pointe" = c(1, 1, -2, 1, 1, -2)
+))
+
+# Résumé des résultats des contrastes de la question 3a
+summary(contrast_results_3a)
+```
+On remarque que les résultats sont identiques en utilsant les deux modèles: celui avec interaction entre pointe et mem, et celui utlisant le résumé des deux viriables par la variable groupe. 
